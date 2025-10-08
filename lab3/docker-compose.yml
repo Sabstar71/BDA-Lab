@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # 1. MongoDB Database Service
+  mongo:
+    image: mongo:latest
+    container_name: bda-mongo-1 # Set the name for clarity
+    ports:
+       - "27018:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: always
+
+  # 2. Your Application Service (Example - replace with your actual app details)
+  app:
+    build: . 
+    container_name: bda-app-1
+    volumes:
+      - .:/app # Map the local directory to the app container
+    env_file:
+      - .env
+    ports:
+      - "8000:8000" # Example port mapping (Host:Container)
+    depends_on:
+      # Your application depends on the database, so we put the dependency here.
+      - mongo
+    restart: always
+
+volumes:
+  # Named volume for persistent MongoDB data
+  mongo-data:
