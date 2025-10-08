@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart City Waste Collection Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Smart City Waste Collection Dashboard</h1>
+    <p>7th Semester Project — Waste Bin Monitoring with CRUD + Map</p>
+  </header>
+
+  <section class="stats">
+    <div class="card"><h3>Total Bins</h3><p id="totalBins">0</p></div>
+    <div class="card"><h3>Average Fill</h3><p id="avgFill">0%</p></div>
+    <div class="card"><h3>Full Bins</h3><p id="fullBins">0</p></div>
+  </section>
+
+  <div id="mainMap"></div>
+
+  <section class="crud-section">
+    <h2>Manage Bins (CRUD)</h2>
+    <form id="binForm">
+      <input type="hidden" id="editId">
+      <input type="text" id="binId" placeholder="Bin ID" required>
+      <input type="text" id="location" placeholder="Location" required>
+      <input type="number" id="fill" placeholder="Fill Level (%)" min="0" max="100" required>
+      <input type="text" id="status" placeholder="Status" required>
+      <input type="text" id="last" placeholder="Last Collected (YYYY-MM-DD HH:MM)" required>
+      <input type="text" id="lat" placeholder="Latitude" required>
+      <input type="text" id="lon" placeholder="Longitude" required>
+      <button type="button" onclick="openPickerMap()">Pick on Map</button>
+      <button type="submit">Add / Update Bin</button>
+    </form>
+  </section>
+
+  <section class="table-section">
+    <h2>Bin Status Table</h2>
+    <table id="binTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Location</th>
+          <th>Fill Level (%)</th>
+          <th>Status</th>
+          <th>Last Collected</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- Map Picker Modal -->
+  <div id="pickerModal" class="modal">
+    <div class="modal-content">
+      <h2>Select Bin Location</h2>
+      <div id="pickerMap"></div>
+      <div class="modal-actions">
+        <button onclick="closePicker()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
