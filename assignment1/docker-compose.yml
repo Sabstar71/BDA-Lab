@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-namenode
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
+      - HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check=false
+    volumes:
+      - hdfs-namenode:/hadoop/dfs/name
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870"]
+      interval: 10s
+      retries: 10
+
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-datanode
+    depends_on:
+      - hadoop-namenode
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
+      - HDFS_CONF_dfs_datanode_data_dir=file:///hadoop/dfs/data
+    volumes:
+      - hdfs-datanode:/hadoop/dfs/data
+
+  bda-app-1:
+    build: .
+    container_name: bda-app-1
+    depends_on:
+      - hadoop-namenode
+      - hadoop-datanode
+    environment:
+      - HDFS_URL=http://hadoop-namenode:9870
+    volumes:
+      - .:/app
+
+volumes:
+  hdfs-namenode:
+  hdfs-datanode:
