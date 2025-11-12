@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  hdfs-nn:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hdfs-nn
+    restart: always
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    environment:
+      - CLUSTER_NAME=my-hadoop-cluster
+    volumes:
+      - hdfs-nn-data:/hadoop/dfs/name
+    networks:
+      - bigdata-net
+    env_file:
+      - ./hadoop.env
+
+  hdfs-dn:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hdfs-dn
+    restart: always
+    ports:
+      - "9864:9864"
+    environment:
+      - SERVICE_PRECONDITION=hdfs-nn:9870
+    volumes:
+      - hdfs-dn-data:/hadoop/dfs/data
+    networks:
+      - bigdata-net
+    env_file:
+      - ./hadoop.env
+
+  spark-master:
+    image: apache/spark:3.5.2-bin-hadoop3
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_UI_PORT=8080
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    networks:
+      - bigdata-net
+
+  spark-worker:
+    image: apache/spark:3.5.2-bin-hadoop3
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_DRIVER_MEMORY=1G
+      - SPARK_EXECUTOR_MEMORY=1G
+    ports:
+      - "8081:8081"
+    networks:
+      - bigdata-net
+    depends_on:
+      - spark-master
+
+networks:
+  bigdata-net:
+    driver: bridge
+
+volumes:
+  hdfs-nn-data:
+  hdfs-dn-data:
