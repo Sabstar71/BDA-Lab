@@ -1,2 +1,1 @@
-hdfs
-python-dotenv
+pyarrow
