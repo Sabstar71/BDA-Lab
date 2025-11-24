@@ -1,0 +1,104 @@
+/* Breathtaking professional UI for Smart City Waste Dashboard */
+:root{
+	--bg-1:linear-gradient(120deg,#0f172a 0%,#0b3b6f 45%,#0f4a85 100%);
+	--surface:rgba(255,255,255,0.06);
+	--glass:rgba(255,255,255,0.06);
+	--card:#0b1220aa;
+	--accent:#00d4ff;
+	--accent-2:#7c3aed;
+	--muted:#cbd5e1;
+	--glass-border:rgba(255,255,255,0.08);
+}
+html,body{height:100%;margin:0;font-family:Inter,Segoe UI,system-ui,Arial,sans-serif;background:var(--bg-1);color:var(--muted);-webkit-font-smoothing:antialiased}
+header{padding:28px 36px 12px;color:white}
+header h1{margin:0;font-size:28px;letter-spacing:0.4px}
+header p{margin:8px 0 0;color:rgba(255,255,255,0.8)}
+
+/* Stats */
+.stats{display:flex;gap:18px;padding:0 36px 18px}
+.card{background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));backdrop-filter:blur(6px);border:1px solid var(--glass-border);padding:16px;border-radius:12px;min-width:160px;color:white}
+.card h3{margin:0;font-size:13px;color:rgba(255,255,255,0.85)}
+.card p{margin:8px 0 0;font-size:20px;font-weight:700}
+
+/* Main layout */
+.app{display:flex;gap:20px;padding:18px 36px}
+.sidebar{width:360px;background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent);border-radius:12px;padding:18px;border:1px solid var(--glass-border);box-shadow:0 10px 40px rgba(2,6,23,0.45)}
+.sidebar header h1{margin:0;font-size:18px;color:white}
+.sidebar header .muted{color:var(--muted);font-size:12px;margin-top:6px}
+.controls .row{display:flex;gap:8px;margin-top:12px}
+.controls input[type=text], .controls input[type=number], .controls input[type=range], .controls input[type=file], .controls input{flex:1;padding:10px;border-radius:10px;border:1px solid var(--glass-border);background:transparent;color:var(--muted)}
+.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#061024;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600}
+.primary:hover{filter:brightness(1.04)}
+.list{margin-top:14px;overflow:auto;max-height:56vh}
+.loc-item{padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);margin-bottom:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);color:var(--muted);transition:transform 160ms ease,box-shadow 160ms ease}
+.loc-item:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(2,6,23,0.45)}
+.loc-item .meta{display:flex;justify-content:space-between;align-items:center}
+.loc-item small{color:rgba(255,255,255,0.6);font-size:12px}
+.loc-item .coords{color:rgba(255,255,255,0.65);font-size:13px;margin-top:6px}
+.controls-row{margin-top:10px;display:flex;align-items:center;gap:8px}
+.controls-row button{margin-left:auto;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)}
+
+.main-map-wrap{flex:1;display:flex;align-items:center;justify-content:center}
+#mainMap, #map{width:100%;max-width:1200px;height:72vh;border-radius:14px;box-shadow:0 18px 60px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.04);overflow:hidden}
+
+/* Form section */
+.crud-section{padding:20px 36px 10px}
+.crud-section form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.crud-section input, .crud-section button{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)}
+.crud-section button[type=submit]{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#061024;border:none}
+
+/* Table */
+.table-section{padding:10px 36px}
+table#binTable{width:100%;border-collapse:collapse;background:rgba(11,18,32,0.25);backdrop-filter:blur(4px);border-radius:8px;overflow:hidden}
+table#binTable th, table#binTable td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--muted)}
+table#binTable thead th{background:linear-gradient(90deg,rgba(255,255,255,0.02),transparent);color:rgba(255,255,255,0.9);font-weight:700}
+
+/* Picker modal */
+#pickerModal{display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(2,6,23,0.6),rgba(2,6,23,0.8));z-index:9999}
+#pickerModal .modal-content{width:90%;max-width:920px;background:linear-gradient(180deg,#071022 0%,#071526 100%);border-radius:12px;padding:12px;border:1px solid rgba(255,255,255,0.04)}
+#pickerMap{height:520px;border-radius:8px}
+#pickerModal .modal-actions{display:flex;justify-content:flex-end;margin-top:10px}
+#pickerModal button{padding:8px 12px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#061024}
+
+/* Topbar and actions */
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:18px 36px}
+.topbar .title h1{margin:0;color:white}
+.topbar .title .muted{color:rgba(255,255,255,0.7)}
+.topbar .actions{display:flex;gap:8px}
+.small{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)}
+.small.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#061024}
+
+.map-legend{position:fixed;right:24px;top:160px;background:rgba(7,20,38,0.8);padding:8px 12px;border-radius:8px;color:var(--muted);z-index:1200;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+.map-legend div{display:flex;align-items:center;gap:8px;margin:6px 0}
+
+/* make inputs and table more prominent */
+.crud-section input, .crud-section button{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04)}
+
+/* highlight table row on hover */
+table#binTable tbody tr:hover{background:rgba(255,255,255,0.02);cursor:pointer}
+
+/* Modal used by modalRoot */
+#modalRoot .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(2,6,23,0.6),rgba(2,6,23,0.8));z-index:9999}
+#modalRoot .modal-body{background:#071426;padding:18px;border-radius:12px;width:520px;border:1px solid rgba(255,255,255,0.04)}
+#modalRoot label{display:block;margin-top:8px;color:var(--muted)}
+#modalRoot input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)}
+#modalRoot .mini-map{height:300px;margin-top:8px;border-radius:8px;overflow:hidden}
+#modalRoot .modal-actions{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
+
+/* Marker dots */
+.custom-marker .dot{display:block;width:18px;height:18px;border-radius:50%;box-shadow:0 0 0 4px rgba(0,0,0,0.35)}
+.dot.green{background:#10b981}
+.dot.orange{background:#f59e0b}
+.dot.red{background:#ef4444}
+
+/* Responsive */
+@media (max-width: 1000px){
+	.app{flex-direction:column;padding:12px}
+	.sidebar{width:100%}
+	#mainMap, #map{height:56vh}
+}
+
+@media (max-width: 600px){
+	.stats{flex-direction:column;padding:12px}
+	header{padding:18px}
+}

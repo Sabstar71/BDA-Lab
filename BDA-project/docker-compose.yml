@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  hadoop:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    container_name: hadoop
+    environment:
+      - CLUSTER_NAME=single-node
+    ports:
+      - "50070:50070" # WebHDFS / Namenode UI
+      - "8020:8020"   # HDFS RPC
+    volumes:
+      - hadoop_data:/hadoop/dfs
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.node
+    container_name: bda-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - HDFS_HOST=http://hadoop:50070
+      - HDFS_USER=hduser
+    depends_on:
+      - hadoop
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.node
+    container_name: bda-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  hadoop_data:
+    driver: local
