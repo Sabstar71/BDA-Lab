@@ -1,6 +1,0 @@
-fastapi==0.95.2
-uvicorn[standard]==0.22.0
-SQLAlchemy==2.0.19
-hdfs==2.7.0
-python-multipart==0.0.6
-aiofiles==23.1.0
