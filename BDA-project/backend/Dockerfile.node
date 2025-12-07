@@ -4,5 +4,6 @@ COPY package*.json ./
 # Use npm install --production to avoid requiring a package-lock.json
 RUN npm install --production
 COPY . .
+RUN chmod +x entrypoint.sh
 EXPOSE 8080
-CMD ["node", "index.js"]
+ENTRYPOINT ["./entrypoint.sh"]

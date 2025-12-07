@@ -7,7 +7,7 @@ class HdfsClient {
   }
 
   async ensureDir(path) {
-    const url = `${this.host}/webhdfs/v1${path}?op=MKDIRS&user.name=${this.user}`;
+    const url = `${this.host}/webhdfs/v1${path}?op=MKDIRS&user.name=root`;
     try {
       const res = await axios.put(url, null, { maxRedirects: 0, validateStatus: s => s >= 200 && s < 400 });
       return res.data;
@@ -22,7 +22,7 @@ class HdfsClient {
     const dir = path.substring(0, path.lastIndexOf('/')) || '/';
     await this.ensureDir(dir);
 
-    const createUrl = `${this.host}/webhdfs/v1${path}?op=CREATE&overwrite=true&user.name=${this.user}`;
+    const createUrl = `${this.host}/webhdfs/v1${path}?op=CREATE&overwrite=true&user.name=root`;
     try {
       // first request gets 307 with location to datanode
       const r1 = await axios.put(createUrl, null, { maxRedirects: 0, validateStatus: s => s === 307 });

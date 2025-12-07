@@ -1,8 +1,5 @@
-/* Frontend app script - enhanced UI and features */
-// Use backend API on localhost (frontend is served on :3000, backend on :8080)
 const API = (window && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ? 'http://localhost:8080/api' : '/api';
 let map, markerLayer, markers = {}, socket;
-// Picker modal map state
 let pickerMap = null;
 let pickerMarker = null;
 let pickerInitialized = false;
@@ -11,7 +8,6 @@ function openPickerMap() {
   const modal = document.getElementById('pickerModal');
   if (!modal) return alert('Picker modal not found');
   modal.style.display = 'flex';
-  // initialize picker map once
   if (!pickerInitialized) {
     pickerMap = L.map('pickerMap', { attributionControl: false }).setView([24.8607, 67.0011], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(pickerMap);
@@ -55,7 +51,6 @@ function makeIcon(colorName) {
 }
 
 async function loadLocations() {
-  // load all locations and render list + markers
   let list = [];
   try {
     list = await fetch(API + '/locations/all').then(r => r.json());
@@ -91,7 +86,6 @@ async function loadLocations() {
     markers[loc.id] = m;
   });
 
-  // update summary stats if present
   try {
     const total = list.length;
     const avg = total ? Math.round(list.reduce((s, x) => s + ((x.status ?? x.binLevel) || 0), 0) / total) : 0;
@@ -101,7 +95,6 @@ async function loadLocations() {
     const fb = document.getElementById('fullBins'); if (fb) fb.innerText = full;
   } catch (e) {}
 
-  // attach delete/edit handlers
   Array.from(document.querySelectorAll('.del')).forEach(btn => btn.onclick = async () => {
     const id = btn.getAttribute('data-id');
     await fetch(API + '/locations/' + id, { method: 'DELETE' });
@@ -121,7 +114,6 @@ async function loadAllLocations() {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${loc.binId || ''}</td><td>${loc.name}</td><td>${fill}%</td><td>${loc.status || ''}</td><td>${loc.createdAt ? new Date(loc.createdAt).toLocaleString() : ''}</td>
       <td><button class="t-edit" data-id="${loc.id}">Edit</button> <button class="t-del" data-id="${loc.id}">Delete</button></td>`;
-    // clicking a table row pans the main map to that marker
     tr.addEventListener('click', () => {
       if (markers[loc.id]) {
         map.setView([loc.lat, loc.lng], 16, { animate: true });
@@ -147,7 +139,7 @@ function initMap() {
 function initSocket() {
   try {
     if (typeof io === 'undefined') return;
-    // connect to backend socket server explicitly
+
     socket = io('http://localhost:8080');
     socket.on('locations:update', msg => {
       console.log('socket update', msg && msg.action);
@@ -157,7 +149,6 @@ function initSocket() {
   } catch (e) { console.warn('socket init failed', e); }
 }
 
-// CSV export helper
 async function exportCSV() {
   const list = await fetch(API + '/locations/all').then(r => r.json()).catch(() => []);
   if (!list.length) return alert('No data to export');
@@ -180,7 +171,7 @@ function toggleHeatmap() {
 }
 
 function openAddModal(prepicked) {
-  // reset form fields and focus
+
   const eid = document.getElementById('editId'); if (eid) eid.value = '';
   const bin = document.getElementById('binId'); if (bin) bin.value = '';
   const name = document.getElementById('location'); if (name) name.value = '';
@@ -295,7 +286,6 @@ window.addEventListener('load', () => {
     });
   }
 
-  // export/import handlers (if elements exist)
   const exportBtn = document.getElementById('exportBtn');
   if (exportBtn) exportBtn.onclick = async () => {
     const data = await fetch(API + '/locations/export').then(r => r.blob());
@@ -315,7 +305,6 @@ window.addEventListener('load', () => {
     loadAllLocations();
   };
 
-  // health (if apiHealth exists)
   const healthEl = document.getElementById('apiHealth');
   if (healthEl) fetch('/api/health').then(r => r.json()).then(j => { healthEl.innerText = j.status; healthEl.href = '/api/health'; }).catch(()=>{});
 });

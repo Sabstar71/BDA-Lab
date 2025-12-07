@@ -100,19 +100,15 @@ app.get('/api/locations/:id', async (req, res) => {
   res.json(item);
 });
 
-// export all locations as JSON file
 app.get('/api/locations/export', async (req, res) => {
   const list = await readLocations();
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', 'attachment; filename="locations.json"');
   res.send(JSON.stringify(list, null, 2));
 });
-
-// import locations: replaces/merges existing list
 app.post('/api/locations/import', async (req, res) => {
   const payload = req.body;
   if (!Array.isArray(payload)) return res.status(400).json({ error: 'expected array' });
-  // ensure items have ids and map status/binLevel
   const list = payload.map(p => ({ id: p.id || uuidv4(), binId: p.binId || p.binId === 0 ? p.binId : null, name: p.name || 'Unnamed', lat: p.lat, lng: p.lng, status: (p.status ?? p.binLevel) || 0, createdAt: p.createdAt || new Date().toISOString() }));
   await writeLocations(list);
   io.emit('locations:update', { action: 'import' });
