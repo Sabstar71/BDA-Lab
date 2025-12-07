@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smart City Waste Collection Dashboard</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -13,72 +14,134 @@
 </head>
 <body>
   <header>
-    <div class="topbar">
-      <div class="title">
-        <h1>Smart City Waste Collection Dashboard</h1>
-        <p class="muted">Realtime monitoring • CRUD • HDFS storage</p>
+    <div class="header-container">
+      <div class="logo-section">
+        <div class="logo-icon">♻️</div>
+        <div>
+          <h1>Smart Waste Management</h1>
+          <p class="subtitle">Real-time IoT Monitoring System for Pakistan</p>
+        </div>
       </div>
-      <div class="actions">
-        <button id="exportCSV" class="primary small">Export CSV</button>
-        <button id="exportBtn" class="small">Export JSON</button>
-        <button id="heatToggle" class="small">Toggle Heatmap</button>
+      <div class="header-actions">
+        <button id="exportCSV" class="btn btn-secondary"><span>📥</span> Export CSV</button>
+        <button id="exportBtn" class="btn btn-secondary"><span>📤</span> Export JSON</button>
+        <button id="heatToggle" class="btn btn-secondary"><span>🔥</span> Heatmap</button>
       </div>
     </div>
   </header>
 
-  <section class="stats">
-    <div class="card"><h3>Total Bins</h3><p id="totalBins">0</p></div>
-    <div class="card"><h3>Average Fill</h3><p id="avgFill">0%</p></div>
-    <div class="card"><h3>Full Bins</h3><p id="fullBins">0</p></div>
-  </section>
+  <section class="dashboard-container">
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-icon">🗑️</div>
+        <div class="metric-content">
+          <h3>Total Bins</h3>
+          <p class="metric-value" id="totalBins">0</p>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-icon">📊</div>
+        <div class="metric-content">
+          <h3>Avg Fill Level</h3>
+          <p class="metric-value" id="avgFill">0%</p>
+        </div>
+      </div>
+      <div class="metric-card alert">
+        <div class="metric-icon">⚠️</div>
+        <div class="metric-content">
+          <h3>Full Bins</h3>
+          <p class="metric-value" id="fullBins">0</p>
+        </div>
+      </div>
+    </div>
 
-  <div id="mainMap"></div>
-  <div class="map-legend" id="mapLegend">
-    <div><span class="dot green"></span> Low &lt;40%</div>
-    <div><span class="dot orange"></span> Medium 40–74%</div>
-    <div><span class="dot red"></span> High ≥75%</div>
-  </div>
+    <div class="main-content">
+      <div class="map-container">
+        <div class="map-header">
+          <h2>Live Location Map</h2>
+          <div class="map-legend" id="mapLegend">
+            <div><span class="dot green"></span> Low &lt;40%</div>
+            <div><span class="dot orange"></span> Medium 40–74%</div>
+            <div><span class="dot red"></span> High ≥75%</div>
+          </div>
+        </div>
+        <div id="mainMap" class="map-wrapper"></div>
+      </div>
 
-  <section class="crud-section">
-    <h2>Manage Bins (CRUD)</h2>
-    <form id="binForm">
-      <input type="hidden" id="editId">
-      <input type="text" id="binId" placeholder="Bin ID" required>
-      <input type="text" id="number" placeholder="Location" required>
-      <input type="number" id="fill" placeholder="Fill Level (%)" min="0" max="100" required>
-      <input type="text" id="status" placeholder="Status" required>
-      <input type="text" id="last" placeholder="Last Collected (YYYY-MM-DD HH:MM)" required>
-      <input type="text" id="lat" placeholder="Latitude" required>
-      <input type="text" id="lon" placeholder="Longitude" required>
-      <button type="button" onclick="openPickerMap()">Pick on Map</button>
-      <button type="submit">Add / Update Bin</button>
-    </form>
+      <div class="sidebar-panel">
+        <div class="panel-section">
+          <h2>Add / Update Bin</h2>
+          <form id="binForm" class="bin-form">
+            <input type="hidden" id="editId">
+            <div class="form-group">
+              <label>Bin ID</label>
+              <input type="text" id="binId" placeholder="e.g., PK-00123" required>
+            </div>
+            <div class="form-group">
+              <label>Number</label>
+              <input type="text" id="number" placeholder="Bin number" required>
+            </div>
+            <div class="form-group">
+              <label>Fill Level (%)</label>
+              <input type="number" id="fill" placeholder="0-100" min="0" max="100" required>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <input type="text" id="status" placeholder="Active/Inactive" required>
+            </div>
+            <div class="form-group">
+              <label>Last Collected</label>
+              <input type="text" id="last" placeholder="YYYY-MM-DD HH:MM" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Latitude</label>
+                <input type="text" id="lat" placeholder="Lat" required>
+              </div>
+              <div class="form-group">
+                <label>Longitude</label>
+                <input type="text" id="lon" placeholder="Lng" required>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="openPickerMap()">📍 Pick Location</button>
+              <button type="submit" class="btn btn-primary">✓ Save Bin</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section class="table-section">
-    <h2>Bin Status Table</h2>
-    <table id="binTable">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Location</th>
-          <th>Fill Level (%)</th>
-          <th>Status</th>
-          <th>Last Collected</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <h2>Waste Bin Inventory</h2>
+    <div class="table-wrapper">
+      <table id="binTable">
+        <thead>
+          <tr>
+            <th>🆔 ID</th>
+            <th>📍 Location</th>
+            <th>📊 Fill %</th>
+            <th>🔔 Status</th>
+            <th>⏰ Last Collected</th>
+            <th>⚙️ Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 
   <!-- Map Picker Modal -->
   <div id="pickerModal" class="modal">
     <div class="modal-content">
-      <h2>Select Bin Location</h2>
-      <div id="pickerMap"></div>
-      <div class="modal-actions">
-        <button onclick="closePicker()">Close</button>
+      <div class="modal-header">
+        <h2>📍 Select Bin Location</h2>
+        <button class="modal-close" onclick="closePicker()">✕</button>
+      </div>
+      <div id="pickerMap" class="picker-map"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePicker()">Close</button>
       </div>
     </div>
   </div>
