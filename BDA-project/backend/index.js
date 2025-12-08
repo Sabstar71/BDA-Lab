@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 const fs = require('fs').promises;
 const path = require('path');
+const compression = require('compression');
 
 const HDFS_HOST = process.env.HDFS_HOST || 'http://hadoop:50070';
 const HDFS_USER = process.env.HDFS_USER || 'hduser';
@@ -17,29 +18,46 @@ const LOCAL_DATA_DIR = path.join(__dirname, 'data');
 const LOCAL_DATA_FILE = path.join(LOCAL_DATA_DIR, 'locations.json');
 
 const app = express();
+app.use(compression());
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.static('public'));
+
+let locationsCache = null;
+let cacheTime = 0;
+const CACHE_TTL = 5000;
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
 async function readLocations() {
+  const now = Date.now();
+  if (locationsCache && (now - cacheTime) < CACHE_TTL) {
+    return locationsCache;
+  }
   try {
     const text = await hdfs.readFile(LOCATIONS_PATH);
-    if (text) return JSON.parse(text);
+    if (text) {
+      locationsCache = JSON.parse(text);
+      cacheTime = now;
+      return locationsCache;
+    }
   } catch (err) {
     console.warn('HDFS read failed, falling back to local file:', err && err.message);
   }
   try {
     const t = await fs.readFile(LOCAL_DATA_FILE, 'utf8');
-    return JSON.parse(t || '[]');
+    locationsCache = JSON.parse(t || '[]');
+    cacheTime = now;
+    return locationsCache;
   } catch (e) {
     return [];
   }
 }
 
 async function writeLocations(arr) {
+  locationsCache = arr;
+  cacheTime = Date.now();
   const data = JSON.stringify(arr);
   try {
     await hdfs.writeFile(LOCATIONS_PATH, data);
@@ -63,14 +81,27 @@ app.get('/api/health', (req, res) => {
 app.get('/api/locations', async (req, res) => {
   const q = (req.query.q || '').toLowerCase();
   const minBin = parseInt(req.query.minBin || req.query.minStatus || '0', 10) || 0;
+  const page = Math.max(1, parseInt(req.query.page || '1', 10));
+  const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
   const list = await readLocations();
   const filtered = list.filter(l => (l.name || '').toLowerCase().includes(q) && ((l.status ?? l.binLevel) || 0) >= minBin);
-  res.json(filtered);
+  const start = (page - 1) * limit;
+  const paginated = filtered.slice(start, start + limit);
+  res.json({ items: paginated, total: filtered.length, page, limit });
 });
 
 app.get('/api/locations/all', async (req, res) => {
   const list = await readLocations();
   res.json(list);
+});
+
+app.get('/api/locations/paginated', async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page || '1', 10));
+  const limit = Math.min(500, parseInt(req.query.limit || '100', 10));
+  const list = await readLocations();
+  const start = (page - 1) * limit;
+  const items = list.slice(start, start + limit);
+  res.json({ items, total: list.length, page, limit, pages: Math.ceil(list.length / limit) });
 });
 
 app.post('/api/locations', async (req, res) => {
@@ -142,6 +173,15 @@ app.delete('/api/locations/:id', async (req, res) => {
   await writeLocations(list);
   io.emit('locations:update', { action: 'delete', item: removed });
   res.json({ ok: true });
+});
+
+app.delete('/api/locations/deleteAll', async (req, res) => {
+  console.log('Deleting all locations...');
+  const list = await readLocations();
+  const count = list.length;
+  await writeLocations([]);
+  io.emit('locations:update', { action: 'deleteAll', count: count });
+  res.json({ ok: true, deleted: count });
 });
 
 io.on('connection', socket => {

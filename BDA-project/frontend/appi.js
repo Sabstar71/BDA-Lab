@@ -3,6 +3,27 @@ let map, markerLayer, markers = {}, socket;
 let pickerMap = null;
 let pickerMarker = null;
 let pickerInitialized = false;
+let locationsCache = [];
+let loadingState = false;
+let tableCurrentPage = 1;
+let tablePageSize = 50;
+let totalRecords = 0;
+
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+function showNotification(message, isError = false) {
+  const notif = document.createElement('div');
+  notif.style.cssText = `position: fixed; top: 20px; right: 20px; background: ${isError ? '#ef4444' : '#10b981'}; color: white; padding: 12px 20px; border-radius: 8px; z-index: 10000; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.3);`;
+  notif.innerText = message;
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 3000);
+}
 
 function openPickerMap() {
   const modal = document.getElementById('pickerModal');
@@ -53,81 +74,171 @@ function makeIcon(colorName) {
 async function loadLocations() {
   let list = [];
   try {
+    console.log('Loading locations from:', API + '/locations/all');
     list = await fetch(API + '/locations/all').then(r => r.json());
-  } catch (e) { list = []; }
+    console.log('Loaded', list.length, 'locations');
+  } catch (e) { 
+    console.error('Failed to load locations:', e);
+    list = []; 
+  }
 
   const container = document.getElementById('locationsList');
   if (container) container.innerHTML = '';
 
-  // clear markers
   if (markerLayer && markerLayer.clearLayers) markerLayer.clearLayers();
   markers = {};
 
-  list.forEach(loc => {
-    const el = document.createElement('div');
-    el.className = 'loc-item';
-    const fill = (loc.status ?? loc.binLevel) || 0;
-    el.innerHTML = `<div class="meta"><strong>${loc.name}</strong><small>${new Date(loc.createdAt).toLocaleString()}</small></div>
-      <div class="coords">${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>
-      <div class="coords">Bin ID: <strong>${loc.binId || '—'}</strong></div>
-      <div class="controls-row">Fill: <b>${fill}%</b>
-      <button data-id="${loc.id}" class="edit">Edit</button>
-      <button data-id="${loc.id}" class="del">Delete</button></div>`;
-    if (container) container.appendChild(el);
+  let prevColor = null;
+  const chunks = [];
+  for (let i = 0; i < list.length; i += 100) {
+    chunks.push(list.slice(i, i + 100));
+  }
 
-    const color = colorForBin(fill);
-    const m = L.marker([loc.lat, loc.lng], { icon: makeIcon(color) });
-    m.bindPopup(`<b>${loc.name}</b><br>Bin ID: ${loc.binId || '—'}<br>Fill: ${fill}%<br><button class="popup-edit" data-id="${loc.id}">Edit</button>`);
-    m.on('popupopen', () => {
-      const btn = document.querySelector('.popup-edit');
-      if (btn) btn.onclick = () => openEditModal(loc.id);
+  let chunkIndex = 0;
+  function processChunk() {
+    if (chunkIndex >= chunks.length) {
+      try {
+        const total = list.length;
+        const avg = total ? Math.round(list.reduce((s, x) => s + ((x.status ?? x.binLevel) || 0), 0) / total) : 0;
+        const full = list.filter(x => ((x.status ?? x.binLevel) || 0) >= 90).length;
+        const tb = document.getElementById('totalBins'); if (tb) tb.innerText = total;
+        const af = document.getElementById('avgFill'); if (af) af.innerText = avg + '%';
+        const fb = document.getElementById('fullBins'); if (fb) fb.innerText = full;
+      } catch (e) {}
+      setupTablePagination();
+      return;
+    }
+    const chunk = chunks[chunkIndex++];
+    chunk.forEach(loc => {
+      const color = colorForBin((loc.status ?? loc.binLevel) || 0);
+      const m = L.marker([loc.lat, loc.lng], { icon: makeIcon(color) });
+      m.bindPopup(`<b>${loc.name}</b><br>Bin ID: ${loc.binId || '—'}<br>Fill: ${(loc.status ?? loc.binLevel) || 0}%<br><button class="popup-edit" data-id="${loc.id}">Edit</button>`);
+      m.on('popupopen', () => {
+        const btn = document.querySelector('.popup-edit');
+        if (btn) btn.onclick = () => openEditModal(loc.id);
+      });
+      if (markerLayer && markerLayer.addLayer) markerLayer.addLayer(m);
+      markers[loc.id] = m;
     });
-    if (markerLayer && markerLayer.addLayer) markerLayer.addLayer(m);
-    markers[loc.id] = m;
-  });
+    requestAnimationFrame(processChunk);
+  }
+  requestAnimationFrame(processChunk);
+}
 
-  try {
-    const total = list.length;
-    const avg = total ? Math.round(list.reduce((s, x) => s + ((x.status ?? x.binLevel) || 0), 0) / total) : 0;
-    const full = list.filter(x => ((x.status ?? x.binLevel) || 0) >= 90).length;
-    const tb = document.getElementById('totalBins'); if (tb) tb.innerText = total;
-    const af = document.getElementById('avgFill'); if (af) af.innerText = avg + '%';
-    const fb = document.getElementById('fullBins'); if (fb) fb.innerText = full;
-  } catch (e) {}
+function setupTablePagination() {
+  const container = document.getElementById('tablePaginationContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  const tbody = document.querySelector('#binTable tbody');
+  if (!tbody) return;
 
-  Array.from(document.querySelectorAll('.del')).forEach(btn => btn.onclick = async () => {
-    const id = btn.getAttribute('data-id');
-    await fetch(API + '/locations/' + id, { method: 'DELETE' });
-    loadLocations();
-    loadAllLocations();
-  });
-  Array.from(document.querySelectorAll('.edit')).forEach(btn => btn.onclick = e => openEditModal(btn.getAttribute('data-id')));
+  totalRecords = locationsCache.length;
+  const totalPages = Math.ceil(totalRecords / tablePageSize);
+
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'pagination-btn';
+  prevBtn.innerText = 'Previous';
+  prevBtn.disabled = tableCurrentPage <= 1;
+  prevBtn.onclick = () => {
+    if (tableCurrentPage > 1) {
+      tableCurrentPage--;
+      loadAllLocations();
+      window.scrollTo(0, 0);
+    }
+  };
+  container.appendChild(prevBtn);
+
+  for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+    const btn = document.createElement('button');
+    btn.className = 'pagination-btn' + (i === tableCurrentPage ? ' active' : '');
+    btn.innerText = i;
+    btn.onclick = () => {
+      tableCurrentPage = i;
+      loadAllLocations();
+      window.scrollTo(0, 0);
+    };
+    container.appendChild(btn);
+  }
+
+  const nextBtn = document.createElement('button');
+  nextBtn.className = 'pagination-btn';
+  nextBtn.innerText = 'Next';
+  nextBtn.disabled = tableCurrentPage >= totalPages;
+  nextBtn.onclick = () => {
+    if (tableCurrentPage < totalPages) {
+      tableCurrentPage++;
+      loadAllLocations();
+      window.scrollTo(0, 0);
+    }
+  };
+  container.appendChild(nextBtn);
+
+  const pageInfo = document.createElement('span');
+  pageInfo.className = 'page-info';
+  pageInfo.innerText = `Page ${tableCurrentPage} of ${totalPages} (${totalRecords} total)`;
+  container.appendChild(pageInfo);
 }
 
 async function loadAllLocations() {
-  const list = await fetch(API + '/locations/all').then(r => r.json()).catch(() => []);
-  const tbody = document.querySelector('#binTable tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  list.forEach(loc => {
-    const fill = (loc.status ?? loc.binLevel) || 0;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${loc.binId || ''}</td><td>${loc.name}</td><td>${fill}%</td><td>${loc.status || ''}</td><td>${loc.createdAt ? new Date(loc.createdAt).toLocaleString() : ''}</td>
-      <td><button class="t-edit" data-id="${loc.id}">Edit</button> <button class="t-del" data-id="${loc.id}">Delete</button></td>`;
-    tr.addEventListener('click', () => {
-      if (markers[loc.id]) {
-        map.setView([loc.lat, loc.lng], 16, { animate: true });
-        markers[loc.id].openPopup();
-      }
+  try {
+    const offset = (tableCurrentPage - 1) * tablePageSize;
+    const list = locationsCache && locationsCache.length > 0 ? locationsCache : await fetch(API + '/locations/all').then(r => r.json());
+    if (!locationsCache || locationsCache.length === 0) {
+      locationsCache = list;
+    }
+    
+    const pageItems = list.slice(offset, offset + tablePageSize);
+    
+    const tbody = document.querySelector('#binTable tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    console.log('Loading page', tableCurrentPage, 'with', pageItems.length, 'items out of', list.length, 'total');
+    
+    pageItems.forEach((loc, index) => {
+      const fill = (loc.status ?? loc.binLevel) || 0;
+      const tr = document.createElement('tr');
+      tr.style.animationDelay = `${index * 30}ms`;
+      tr.className = 'table-row-animate';
+      
+      const statusBadge = fill >= 90 ? 'status-full' : fill >= 40 ? 'status-partial' : 'status-empty';
+      const statusText = fill >= 90 ? 'FULL' : fill >= 40 ? 'MEDIUM' : 'EMPTY';
+      
+      tr.innerHTML = `<td>${loc.binId || '—'}</td><td>${loc.name}</td><td><strong>${fill}%</strong></td><td><span class="status-badge ${statusBadge}">${statusText}</span></td><td>${loc.createdAt ? new Date(loc.createdAt).toLocaleString() : '—'}</td>
+        <td><button class="t-edit action-btn" data-id="${loc.id}">Edit</button> <button class="t-del action-btn" data-id="${loc.id}">Delete</button></td>`;
+      tr.addEventListener('click', (e) => {
+        if (e.target.className.includes('action-btn')) return;
+        if (markers[loc.id]) {
+          map.setView([loc.lat, loc.lng], 16, { animate: true });
+          markers[loc.id].openPopup();
+        }
+      });
+      tbody.appendChild(tr);
     });
-    tbody.appendChild(tr);
-  });
-  Array.from(document.querySelectorAll('.t-del')).forEach(b => b.onclick = async () => { await fetch(API + '/locations/' + b.dataset.id, { method: 'DELETE' }); loadLocations(); loadAllLocations(); });
-  Array.from(document.querySelectorAll('.t-edit')).forEach(b => b.onclick = () => openEditModal(b.dataset.id));
+    
+    Array.from(document.querySelectorAll('.t-del')).forEach(b => b.onclick = async (e) => {
+      e.stopPropagation();
+      await fetch(API + '/locations/' + b.dataset.id, { method: 'DELETE' });
+      await loadLocations();
+      loadAllLocations();
+    });
+    Array.from(document.querySelectorAll('.t-edit')).forEach(b => b.onclick = (e) => {
+      e.stopPropagation();
+      openEditModal(b.dataset.id);
+    });
+  } catch (e) {
+    console.error('Error loading table:', e);
+  }
 }
 
 function initMap() {
-  map = L.map('mainMap').setView([24.8607, 67.0011], 12);
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) {
+    console.error('Map container not found!');
+    return;
+  }
+  map = L.map('map').setView([24.8607, 67.0011], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
   if (typeof L.markerClusterGroup === 'function') markerLayer = L.markerClusterGroup();
   else markerLayer = L.layerGroup();
@@ -171,19 +282,13 @@ function toggleHeatmap() {
 }
 
 function openAddModal(prepicked) {
-
-  const eid = document.getElementById('editId'); if (eid) eid.value = '';
-  const bin = document.getElementById('binId'); if (bin) bin.value = '';
-  const name = document.getElementById('location'); if (name) name.value = '';
-  const f = document.getElementById('fill'); if (f) f.value = '';
-  const st = document.getElementById('status'); if (st) st.value = '';
-  const last = document.getElementById('last'); if (last) last.value = '';
-  const lat = document.getElementById('lat'); if (lat) lat.value = '';
-  const lon = document.getElementById('lon'); if (lon) lon.value = '';
-  if (name) name.focus();
+  console.log('Opening add modal');
+  createModal();
+  showModal({ mode: 'create', id: null });
 }
 
 function openEditModal(id) {
+  console.log('Opening edit modal for id:', id);
   createModal();
   showModal({ mode: 'edit', id });
 }
@@ -234,23 +339,210 @@ function showModal(opts) {
     const name = document.getElementById('m_name').value || 'Unnamed';
     const binId = document.getElementById('m_binid').value || null;
     const binLevel = parseInt(document.getElementById('m_bin').value || '0', 10);
-    if (opts.mode === 'create') {
-      if (!picked) return alert('Choose a location on the map');
-      await fetch(API + '/locations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, lat: picked.lat, lng: picked.lng, binLevel, binId, status: binLevel }) });
-    } else {
-      await fetch(API + '/locations/' + opts.id, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, binId, binLevel, status: binLevel, lat: picked ? picked.lat : undefined, lng: picked ? picked.lng : undefined }) });
+    
+    try {
+      if (opts.mode === 'create') {
+        if (!picked) return alert('Choose a location on the map');
+        const res = await fetch(API + '/locations', { 
+          method: 'POST', 
+          headers: {'Content-Type':'application/json'}, 
+          body: JSON.stringify({ name, lat: picked.lat, lng: picked.lng, binLevel, binId, status: binLevel }) 
+        });
+        if (!res.ok) throw new Error('Failed to create location');
+        showNotification('Bin created successfully');
+      } else {
+        const res = await fetch(API + '/locations/' + opts.id, { 
+          method: 'PUT', 
+          headers: {'Content-Type':'application/json'}, 
+          body: JSON.stringify({ name, binId, binLevel, status: binLevel, lat: picked ? picked.lat : undefined, lng: picked ? picked.lng : undefined }) 
+        });
+        if (!res.ok) throw new Error('Failed to update location');
+        showNotification('Bin updated successfully');
+      }
+      document.getElementById('modalRoot').innerHTML = '';
+      await loadLocations();
+      await loadAllLocations();
+      setupTablePagination();
+    } catch (err) {
+      console.error('Save error:', err);
+      showNotification('Error: ' + err.message, true);
     }
-    document.getElementById('modalRoot').innerHTML = '';
-    loadLocations();
-    loadAllLocations();
   };
 }
 
+// Button handler functions
+function refreshData() {
+  console.log('Refreshing data...');
+  fetch(API + '/locations/all').then(r => r.json()).then(list => {
+    locationsCache = list;
+    loadLocations();
+    loadAllLocations();
+    showNotification('Data refreshed successfully');
+  }).catch(err => {
+    console.error('Refresh failed:', err);
+    showNotification('Failed to refresh data', true);
+  });
+}
+
+function exportData() {
+  console.log('Exporting data...');
+  fetch(API + '/locations/all').then(r => r.json()).then(list => {
+    const json = JSON.stringify(list, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'waste-bins-' + new Date().toISOString().split('T')[0] + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification('Data exported successfully');
+  }).catch(err => {
+    console.error('Export failed:', err);
+    showNotification('Failed to export data', true);
+  });
+}
+
+function deleteAllBins() {
+  if (!confirm('Are you sure you want to delete ALL waste bins? This cannot be undone!')) return;
+  
+  console.log('Deleting all bins...');
+  fetch(API + '/locations/deleteAll', { method: 'DELETE' }).then(r => r.json()).then(result => {
+    console.log('Delete result:', result);
+    locationsCache = [];
+    loadLocations();
+    loadAllLocations();
+    showNotification('All bins deleted successfully');
+  }).catch(err => {
+    console.error('Delete all failed:', err);
+    showNotification('Failed to delete all bins', true);
+  });
+}
+
+function toggleDataTable() {
+  console.log('Toggle table button clicked');
+  const container = document.getElementById('dataTableContainer');
+  const btn = document.querySelector('.toggle-table-btn');
+  
+  if (!container || !btn) {
+    console.error('Table container or button not found');
+    return;
+  }
+  
+  const icon = btn.querySelector('.toggle-icon');
+  const text = btn.querySelector('.toggle-text');
+  
+  if (container.style.display === 'none' || !container.style.display) {
+    console.log('Opening table...');
+    container.style.display = 'block';
+    if (icon) icon.textContent = '▲';
+    if (text) text.textContent = 'Hide Table';
+    tableCurrentPage = 1;
+    loadAllLocations();
+    setupTablePagination();
+  } else {
+    console.log('Closing table...');
+    container.style.display = 'none';
+    if (icon) icon.textContent = '▼';
+    if (text) text.textContent = 'Show Table';
+  }
+}
+
+let currentFilter = 'all';
+
+function filterAndRefresh() {
+  console.log('Search refresh triggered');
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  applyFiltersAndSearch(query, currentFilter);
+}
+
+function filterByStatus(status, button) {
+  console.log('Filtering by status:', status);
+  currentFilter = status;
+  
+  // Highlight active button
+  document.querySelectorAll('.filter-buttons button, .row button').forEach(b => b.style.opacity = '0.6');
+  if (button) button.style.opacity = '1';
+  
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  applyFiltersAndSearch(query, status);
+}
+
+function applyFiltersAndSearch(query, status) {
+  let filtered = locationsCache || [];
+  
+  if (query) {
+    filtered = filtered.filter(loc => 
+      (loc.name || '').toLowerCase().includes(query) || 
+      (loc.binId || '').toLowerCase().includes(query)
+    );
+  }
+  
+  if (status !== 'all') {
+    filtered = filtered.filter(loc => {
+      const fill = (loc.status ?? loc.binLevel) || 0;
+      if (status === 'full') return fill >= 90;
+      if (status === 'medium') return fill >= 40 && fill < 90;
+      if (status === 'empty') return fill < 40;
+      return true;
+    });
+  }
+  
+  console.log('Filtered result:', filtered.length, 'items');
+  renderFilteredMap(filtered);
+}
+
+function renderFilteredMap(filtered) {
+  if (markerLayer && markerLayer.clearLayers) markerLayer.clearLayers();
+  markers = {};
+
+  const chunks = [];
+  for (let i = 0; i < filtered.length; i += 100) {
+    chunks.push(filtered.slice(i, i + 100));
+  }
+
+  let chunkIndex = 0;
+  function processChunk() {
+    if (chunkIndex >= chunks.length) return;
+    const chunk = chunks[chunkIndex++];
+    chunk.forEach(loc => {
+      const color = colorForBin((loc.status ?? loc.binLevel) || 0);
+      const m = L.marker([loc.lat, loc.lng], { icon: makeIcon(color) });
+      m.bindPopup(`<b>${loc.name}</b><br>Bin ID: ${loc.binId || '—'}<br>Fill: ${(loc.status ?? loc.binLevel) || 0}%<br><button class="popup-edit" data-id="${loc.id}">Edit</button>`);
+      m.on('popupopen', () => {
+        const btn = document.querySelector('.popup-edit');
+        if (btn) btn.onclick = () => openEditModal(loc.id);
+      });
+      if (markerLayer && markerLayer.addLayer) markerLayer.addLayer(m);
+      markers[loc.id] = m;
+    });
+    requestAnimationFrame(processChunk);
+  }
+  requestAnimationFrame(processChunk);
+}
+
 window.addEventListener('load', () => {
+  console.log('DOM loaded, initializing app...');
   initMap();
   initSocket();
-  loadLocations();
-  loadAllLocations();
+  console.log('Fetching initial data from:', API + '/locations/all');
+  fetch(API + '/locations/all').then(r => {
+    console.log('API response status:', r.status);
+    return r.json();
+  }).then(list => {
+    console.log('API returned', list.length, 'records');
+    console.log('First record:', list[0]);
+    locationsCache = list;
+    loadLocations();
+    loadAllLocations();
+    setupTablePagination();
+  }).catch((err) => {
+    console.error('Failed to fetch initial data:', err);
+    alert('Error loading data: ' + err.message);
+    locationsCache = [];
+    loadLocations();
+    loadAllLocations();
+    setupTablePagination();
+  });
 
   // form submit handling
   const form = document.getElementById('binForm');
@@ -301,10 +593,14 @@ window.addEventListener('load', () => {
     const file = e.target.files[0]; if (!file) return;
     const json = await file.text();
     await fetch(API + '/locations/import', { method: 'POST', headers: {'Content-Type':'application/json'}, body: json });
-    loadLocations();
-    loadAllLocations();
+    fetch(API + '/locations/all').then(r => r.json()).then(list => {
+      locationsCache = list;
+      loadLocations();
+      loadAllLocations();
+    });
   };
 
   const healthEl = document.getElementById('apiHealth');
   if (healthEl) fetch('/api/health').then(r => r.json()).then(j => { healthEl.innerText = j.status; healthEl.href = '/api/health'; }).catch(()=>{});
 });
+

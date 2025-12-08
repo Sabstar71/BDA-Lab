@@ -1,151 +1,797 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart City Waste Collection Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waste Management System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.Default.css" />
+    <style>
+        /* Breathtaking professional UI for Smart City Waste Dashboard */
+        :root {
+            --bg-1: linear-gradient(120deg, #0f172a 0%, #0b3b6f 45%, #0f4a85 100%);
+            --surface: rgba(255, 255, 255, 0.06);
+            --glass: rgba(255, 255, 255, 0.06);
+            --card: #0b1220aa;
+            --accent: #00d4ff;
+            --accent-2: #7c3aed;
+            --muted: #cbd5e1;
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, 'Segoe UI', system-ui, Arial, sans-serif;
+            background: var(--bg-1);
+            color: var(--muted);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        header {
+            padding: 28px 36px 12px;
+            color: white;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 0.4px;
+        }
+
+        header p {
+            margin: 8px 0 0;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 18px;
+            padding: 0 36px 18px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+            backdrop-filter: blur(6px);
+            border: 1px solid var(--glass-border);
+            padding: 16px;
+            border-radius: 12px;
+            min-width: 160px;
+            color: white;
+        }
+
+        .card h3 {
+            margin: 0;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .card p {
+            margin: 8px 0 0;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        /* Main layout */
+        .app {
+            display: flex;
+            gap: 20px;
+            padding: 18px 36px;
+            min-height: calc(100vh - 160px);
+        }
+
+        .sidebar {
+            width: 380px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+            border-radius: 12px;
+            padding: 18px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 10px 40px rgba(2, 6, 23, 0.45);
+            overflow-y: auto;
+            max-height: 72vh;
+        }
+
+        .sidebar header h1 {
+            margin: 0;
+            font-size: 18px;
+            color: white;
+        }
+
+        .sidebar header .muted {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .controls .row {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .controls input[type=text],
+        .controls input[type=number],
+        .controls input[type=range],
+        .controls input[type=file],
+        .controls input {
+            flex: 1;
+            min-width: 140px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--muted);
+        }
+
+        .controls input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .primary {
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: #061024;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .primary:hover {
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+        }
+
+        .list {
+            margin-top: 14px;
+            overflow: auto;
+            max-height: 56vh;
+        }
+
+        .loc-item {
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            margin-bottom: 10px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+            color: var(--muted);
+            transition: transform 160ms ease, box-shadow 160ms ease;
+        }
+
+        .loc-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45);
+        }
+
+        .loc-item .meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .loc-item small {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+        }
+
+        .loc-item .coords {
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .controls-row {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .controls-row button {
+            margin-left: auto;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .controls-row button:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--accent);
+        }
+
+        .main-map-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #map, #mainMap {
+            width: 100%;
+            max-width: 1200px;
+            height: 72vh;
+            border-radius: 14px;
+            box-shadow: 0 18px 60px rgba(2, 6, 23, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            overflow: hidden;
+        }
+
+        /* Table */
+        .table-section {
+            padding: 20px 36px;
+        }
+
+        table#binTable {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(11, 18, 32, 0.25);
+            backdrop-filter: blur(4px);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        table#binTable th,
+        table#binTable td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: var(--muted);
+            text-align: left;
+        }
+
+        table#binTable thead th {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), transparent);
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 700;
+        }
+
+        table#binTable tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+        }
+
+        /* Picker modal */
+        #pickerModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.6), rgba(2, 6, 23, 0.8));
+            z-index: 9999;
+        }
+
+        #pickerModal .modal-content {
+            width: 90%;
+            max-width: 920px;
+            background: linear-gradient(180deg, #071022 0%, #071526 100%);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        #pickerMap {
+            height: 520px;
+            border-radius: 8px;
+        }
+
+        #pickerModal .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+            gap: 8px;
+        }
+
+        #pickerModal button {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: #061024;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* Edit modal */
+        #editModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.6), rgba(2, 6, 23, 0.8));
+            z-index: 9999;
+        }
+
+        #editModal .modal-content {
+            background: #071426;
+            padding: 24px;
+            border-radius: 12px;
+            width: 520px;
+            max-width: 90vw;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        #editModal label {
+            display: block;
+            margin-top: 12px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        #editModal input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            background: transparent;
+            color: var(--muted);
+            margin-top: 6px;
+        }
+
+        #editModal input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
+
+        .form-actions button {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .form-actions .primary {
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: #061024;
+        }
+
+        .form-actions .secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        /* Marker dots */
+        .custom-marker .dot {
+            display: block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.35);
+        }
+
+        .dot.green {
+            background: #10b981;
+        }
+
+        .dot.orange {
+            background: #f59e0b;
+        }
+
+        .dot.red {
+            background: #ef4444;
+        }
+
+        /* Toggle button */
+        .toggle-table-btn {
+            padding: 10px 14px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            color: #061024;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toggle-table-btn:hover {
+            filter: brightness(1.08);
+        }
+
+        .toggle-icon {
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .toggle-text {
+            display: inline-block;
+        }
+
+        /* Responsive */
+        @media (max-width: 1000px) {
+            .app {
+                flex-direction: column;
+                padding: 12px;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: none;
+            }
+
+            #map, #mainMap {
+                height: 56vh;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .stats {
+                flex-direction: column;
+                padding: 12px;
+            }
+
+            header {
+                padding: 18px;
+            }
+
+            .app {
+                padding: 12px;
+            }
+
+            #map, #mainMap {
+                height: 40vh;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <div class="header-container">
-      <div class="logo-section">
-        <div class="logo-icon">♻️</div>
-        <div>
-          <h1>Smart Waste Management</h1>
-          <p class="subtitle">Real-time IoT Monitoring System for Pakistan</p>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button id="exportCSV" class="btn btn-secondary"><span>📥</span> Export CSV</button>
-        <button id="exportBtn" class="btn btn-secondary"><span>📤</span> Export JSON</button>
-        <button id="heatToggle" class="btn btn-secondary"><span>🔥</span> Heatmap</button>
-      </div>
-    </div>
-  </header>
+    <header>
+        <h1>Waste Management System</h1>
+        <p>Real-time monitoring and management of waste collection bins</p>
+    </header>
 
-  <section class="dashboard-container">
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-icon">🗑️</div>
-        <div class="metric-content">
-          <h3>Total Bins</h3>
-          <p class="metric-value" id="totalBins">0</p>
+    <div class="stats">
+        <div class="card">
+            <h3>Total Bins</h3>
+            <p id="totalBins">0</p>
         </div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-icon">📊</div>
-        <div class="metric-content">
-          <h3>Avg Fill Level</h3>
-          <p class="metric-value" id="avgFill">0%</p>
+        <div class="card">
+            <h3>Avg Fill Level</h3>
+            <p id="avgFill">0%</p>
         </div>
-      </div>
-      <div class="metric-card alert">
-        <div class="metric-icon">⚠️</div>
-        <div class="metric-content">
-          <h3>Full Bins</h3>
-          <p class="metric-value" id="fullBins">0</p>
+        <div class="card">
+            <h3>Full Bins (90%+)</h3>
+            <p id="fullBins">0</p>
         </div>
-      </div>
     </div>
 
-    <div class="main-content">
-      <div class="map-container">
-        <div class="map-header">
-          <h2>Live Location Map</h2>
-          <div class="map-legend" id="mapLegend">
-            <div><span class="dot green"></span> Low &lt;40%</div>
-            <div><span class="dot orange"></span> Medium 40–74%</div>
-            <div><span class="dot red"></span> High ≥75%</div>
-          </div>
+    <div class="app">
+        <!-- Sidebar with CRUD -->
+        <div class="sidebar">
+            <header>
+                <h1>Manage Bins</h1>
+                <div class="muted">Create, edit, and delete waste bins</div>
+            </header>
+
+            <div class="controls">
+                <div class="row">
+                    <button class="primary" onclick="openAddModal()">Add New Bin</button>
+                    <button class="primary" onclick="refreshData()">Refresh</button>
+                </div>
+                <div class="row">
+                    <button class="primary" onclick="exportData()">Export</button>
+                    <button class="primary" onclick="deleteAllBins()">Clear All</button>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 20px; color: white;">Quick Actions</h3>
+            <div class="controls">
+                <input type="text" id="searchInput" placeholder="Search by name or ID..." onkeyup="filterAndRefresh()">
+                <div class="row" style="margin-top: 10px;">
+                    <button class="primary" style="flex: 1;" onclick="filterByStatus('all', this)">All</button>
+                    <button class="primary" style="flex: 1;" onclick="filterByStatus('full', this)">Full</button>
+                    <button class="primary" style="flex: 1;" onclick="filterByStatus('medium', this)">Med</button>
+                    <button class="primary" style="flex: 1;" onclick="filterByStatus('empty', this)">Empty</button>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 20px; color: white;">Bins List</h3>
+            <div class="list" id="locationsList"></div>
         </div>
-        <div id="mainMap" class="map-wrapper"></div>
-      </div>
 
-      <div class="sidebar-panel">
-        <div class="panel-section">
-          <h2>Add / Update Bin</h2>
-          <form id="binForm" class="bin-form">
-            <input type="hidden" id="editId">
-            <div class="form-group">
-              <label>Bin ID</label>
-              <input type="text" id="binId" placeholder="e.g., PK-00123" required>
-            </div>
-            <div class="form-group">
-              <label>Number</label>
-              <input type="text" id="number" placeholder="Bin number" required>
-            </div>
-            <div class="form-group">
-              <label>Fill Level (%)</label>
-              <input type="number" id="fill" placeholder="0-100" min="0" max="100" required>
-            </div>
-            <div class="form-group">
-              <label>Status</label>
-              <input type="text" id="status" placeholder="Active/Inactive" required>
-            </div>
-            <div class="form-group">
-              <label>Last Collected</label>
-              <input type="text" id="last" placeholder="YYYY-MM-DD HH:MM" required>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Latitude</label>
-                <input type="text" id="lat" placeholder="Lat" required>
-              </div>
-              <div class="form-group">
-                <label>Longitude</label>
-                <input type="text" id="lon" placeholder="Lng" required>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button type="button" class="btn btn-secondary" onclick="openPickerMap()">📍 Pick Location</button>
-              <button type="submit" class="btn btn-primary">✓ Save Bin</button>
-            </div>
-          </form>
+        <!-- Main Map -->
+        <div class="main-map-wrap">
+            <div id="map"></div>
         </div>
-      </div>
     </div>
-  </section>
 
-  <section class="table-section">
-    <h2>Waste Bin Inventory</h2>
-    <div class="table-wrapper">
-      <table id="binTable">
-        <thead>
-          <tr>
-            <th>🆔 ID</th>
-            <th>📍 Location</th>
-            <th>📊 Fill %</th>
-            <th>🔔 Status</th>
-            <th>⏰ Last Collected</th>
-            <th>⚙️ Actions</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <!-- Data Table Section -->
+    <div class="table-section">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0; color: white;">All Data Records</h2>
+            <button class="toggle-table-btn" onclick="toggleDataTable()">
+                <span class="toggle-icon">▲</span>
+                <span class="toggle-text">Hide Table</span>
+            </button>
+        </div>
+
+        <div id="dataTableContainer" style="display: block;">
+            <table id="binTable">
+                <thead>
+                    <tr>
+                        <th>Bin ID</th>
+                        <th>Name</th>
+                        <th>Fill Level</th>
+                        <th>Status</th>
+                        <th>Created Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div id="tablePaginationContainer" style="display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap;"></div>
+        </div>
     </div>
-  </section>
 
-  <!-- Map Picker Modal -->
-  <div id="pickerModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>📍 Select Bin Location</h2>
-        <button class="modal-close" onclick="closePicker()">✕</button>
-      </div>
-      <div id="pickerMap" class="picker-map"></div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closePicker()">Close</button>
-      </div>
+    <!-- Add/Edit Modal -->
+    <div id="editModal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 id="modalTitle" style="margin: 0; color: white;">Add New Waste Bin</h2>
+                <button onclick="closeModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">×</button>
+            </div>
+            <form onsubmit="saveLocation(event)">
+                <label>Bin ID:</label>
+                <input type="text" id="binId" required>
+
+                <label>Name:</label>
+                <input type="text" id="name" required>
+
+                <label>Fill Level (%):</label>
+                <input type="number" id="status" min="0" max="100" required>
+
+                <label>Latitude:</label>
+                <input type="number" id="lat" step="0.000001" required>
+
+                <label>Longitude:</label>
+                <input type="number" id="lon" step="0.000001" required>
+
+                <div class="form-actions">
+                    <button type="button" class="secondary" onclick="openPickerMap()">Pick from Map</button>
+                    <button type="submit" class="primary">Save</button>
+                    <button type="button" class="secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
     </div>
-  </div>
 
-  <script src="appi.js"></script>
+    <!-- Location Picker Modal -->
+    <div id="pickerModal">
+        <div class="modal-content">
+            <h2 style="margin: 0 0 12px; color: white;">Select Location on Map</h2>
+            <p style="margin: 0 0 12px; color: rgba(255, 255, 255, 0.7);">Click on the map to select a location</p>
+            <div id="pickerMap"></div>
+            <div class="modal-actions">
+                <button onclick="closePicker()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.1/dist/leaflet.markercluster.js"></script>
+    <script src="appi.js"></script>
+
+    <script>
+        let currentEditId = null;
+        let currentFilter = 'all';
+
+        function openAddModal() {
+            currentEditId = null;
+            document.getElementById('modalTitle').textContent = 'Add New Waste Bin';
+            document.getElementById('editModal').style.display = 'flex';
+            document.getElementById('binId').value = 'PK-' + Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+            document.getElementById('name').value = '';
+            document.getElementById('status').value = 50;
+            document.getElementById('lat').value = '24.8607';
+            document.getElementById('lon').value = '67.0011';
+        }
+
+        function openEditModal(id) {
+            currentEditId = id;
+            document.getElementById('modalTitle').textContent = 'Edit Waste Bin';
+            document.getElementById('editModal').style.display = 'flex';
+            
+            fetch(API + '/locations/' + id).then(r => r.json()).then(loc => {
+                document.getElementById('binId').value = loc.binId || '';
+                document.getElementById('name').value = loc.name || '';
+                document.getElementById('status').value = loc.status || 0;
+                document.getElementById('lat').value = loc.lat || '';
+                document.getElementById('lon').value = loc.lng || '';
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentEditId = null;
+        }
+
+        async function saveLocation(e) {
+            e.preventDefault();
+            const data = {
+                binId: document.getElementById('binId').value,
+                name: document.getElementById('name').value,
+                status: parseInt(document.getElementById('status').value),
+                lat: parseFloat(document.getElementById('lat').value),
+                lng: parseFloat(document.getElementById('lon').value)
+            };
+
+            try {
+                if (currentEditId) {
+                    await fetch(API + '/locations/' + currentEditId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    await fetch(API + '/locations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+                closeModal();
+                fetch(API + '/locations/all').then(r => r.json()).then(list => {
+                    locationsCache = list;
+                    loadLocations();
+                    loadAllLocations();
+                });
+            } catch (err) {
+                alert('Error saving location: ' + err.message);
+            }
+        }
+
+        function refreshData() {
+            fetch(API + '/locations/all').then(r => r.json()).then(list => {
+                locationsCache = list;
+                loadLocations();
+                loadAllLocations();
+            });
+            showNotification('Data refreshed!');
+        }
+
+        function exportData() {
+            fetch(API + '/locations/all')
+                .then(r => r.json())
+                .then(data => {
+                    const json = JSON.stringify(data, null, 2);
+                    const blob = new Blob([json], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'waste-bins-' + new Date().toISOString().slice(0, 10) + '.json';
+                    a.click();
+                    showNotification('Data exported!');
+                });
+        }
+
+        function deleteAllBins() {
+            if (!confirm('Are you sure? This will delete ALL ' + locationsCache.length + ' bins!')) return;
+            
+            const toDelete = locationsCache.map(loc => loc.id);
+            let deleted = 0;
+            
+            (async () => {
+                for (let id of toDelete) {
+                    try {
+                        await fetch(API + '/locations/' + id, { method: 'DELETE' });
+                        deleted++;
+                    } catch (e) {}
+                }
+                fetch(API + '/locations/all').then(r => r.json()).then(list => {
+                    locationsCache = list;
+                    loadLocations();
+                    loadAllLocations();
+                });
+                showNotification(deleted + ' bins deleted!');
+            })();
+        }
+
+        function filterAndRefresh() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            applyFiltersAndSearch(query, currentFilter);
+        }
+
+        function filterByStatus(type, btn) {
+            currentFilter = type;
+            document.querySelectorAll('.sidebar .row:nth-child(3) .primary').forEach(b => b.style.opacity = '0.6');
+            btn.style.opacity = '1';
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            applyFiltersAndSearch(query, type);
+        }
+
+        function applyFiltersAndSearch(query, status) {
+            let filtered = locationsCache;
+            
+            if (query) {
+                filtered = filtered.filter(loc => 
+                    (loc.name || '').toLowerCase().includes(query) || 
+                    (loc.binId || '').toLowerCase().includes(query)
+                );
+            }
+            
+            if (status !== 'all') {
+                filtered = filtered.filter(loc => {
+                    const fill = loc.status ?? loc.binLevel || 0;
+                    if (status === 'full') return fill >= 90;
+                    if (status === 'medium') return fill >= 40 && fill < 90;
+                    if (status === 'empty') return fill < 40;
+                    return true;
+                });
+            }
+            
+            renderFilteredMap(filtered);
+        }
+
+        function renderFilteredMap(filtered) {
+            if (markerLayer && markerLayer.clearLayers) markerLayer.clearLayers();
+            markers = {};
+
+            filtered.forEach(loc => {
+                const color = colorForBin((loc.status ?? loc.binLevel) || 0);
+                const m = L.marker([loc.lat, loc.lng], { icon: makeIcon(color) });
+                m.bindPopup(`<b>${loc.name}</b><br>Bin ID: ${loc.binId || '—'}<br>Fill: ${(loc.status ?? loc.binLevel) || 0}%<br><button class="popup-edit" data-id="${loc.id}" style="padding: 4px 8px; background: #00d4ff; color: #061024; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Edit</button>`);
+                m.on('popupopen', () => {
+                    const btn = document.querySelector('.popup-edit');
+                    if (btn) btn.onclick = () => openEditModal(loc.id);
+                });
+                if (markerLayer && markerLayer.addLayer) markerLayer.addLayer(m);
+                markers[loc.id] = m;
+            });
+        }
+
+        function showNotification(msg) {
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.textContent = msg;
+            notif.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 12px 20px; border-radius: 8px; z-index: 10000; font-weight: 600;';
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 2000);
+        }
+
+        function toggleDataTable() {
+            const container = document.getElementById('dataTableContainer');
+            const btn = document.querySelector('.toggle-table-btn');
+            const icon = btn.querySelector('.toggle-icon');
+            const text = btn.querySelector('.toggle-text');
+            
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                icon.textContent = '▲';
+                text.textContent = 'Hide Table';
+                console.log('Table opened. locationsCache has', locationsCache.length, 'items');
+                tableCurrentPage = 1;
+                loadAllLocations();
+                setupTablePagination();
+            } else {
+                container.style.display = 'none';
+                icon.textContent = '▼';
+                text.textContent = 'Show Table';
+            }
+        }
+    </script>
 </body>
 </html>
