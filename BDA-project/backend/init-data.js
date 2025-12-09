@@ -4,11 +4,36 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const HDFS_HOST = process.env.HDFS_HOST || 'http://hadoop:50070';
-const HDFS_USER = process.env.HDFS_USER || 'hduser';
+const HDFS_USER = process.env.HDFS_USER || 'root';
 const LOCATIONS_PATH = '/locations/locations.json';
+
+async function waitForHdfs(maxRetries = 30) {
+  console.log('[Init] Waiting for HDFS to be ready...');
+  const hdfs = new HdfsClient({ host: HDFS_HOST, user: HDFS_USER });
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const result = await hdfs.readFile('/');
+      console.log('[Init] ✓ HDFS is ready!');
+      return true;
+    } catch (err) {
+      console.log(`[Init] Attempt ${i + 1}/${maxRetries}: HDFS not ready yet, waiting...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+  console.error('[Init] ✗ HDFS did not become ready after', maxRetries * 2, 'seconds');
+  return false;
+}
 
 async function generateAndSaveData() {
   const count = 10000;
+  
+  // Wait for HDFS to be ready
+  const hdfsReady = await waitForHdfs();
+  if (!hdfsReady) {
+    throw new Error('HDFS failed to become ready');
+  }
+  
   const hdfs = new HdfsClient({ host: HDFS_HOST, user: HDFS_USER });
 
   // Pakistan bounding box
@@ -41,28 +66,15 @@ async function generateAndSaveData() {
     }
   }
 
-  console.log(`\nSaving ${count} records to local file...`);
-  const LOCAL_DATA_DIR = path.join(__dirname, 'data');
-  const LOCAL_DATA_FILE = path.join(LOCAL_DATA_DIR, 'locations.json');
-  try {
-    await fs.mkdir(LOCAL_DATA_DIR, { recursive: true });
-    await fs.writeFile(LOCAL_DATA_FILE, JSON.stringify(arr), 'utf8');
-    console.log(`✓ Saved ${count} records to local file`);
-  } catch (e) {
-    console.error('✗ Failed to save local file:', e.message);
-    return false;
-  }
-
-  // Now try to save to HDFS as well (optional)
-  console.log(`\nAttempting to save to HDFS at ${LOCATIONS_PATH}...`);
+  console.log(`\nSaving ${count} records to HDFS at ${LOCATIONS_PATH}...`);
   try {
     await hdfs.writeFile(LOCATIONS_PATH, JSON.stringify(arr));
-    console.log(`✓ Also successfully saved ${count} records to HDFS!`);
+    console.log(`✓ Successfully saved ${count} records to HDFS!`);
     return true;
   } catch (err) {
-    console.error('⚠ Could not save to HDFS (optional):', err.message);
-    console.log('✓ Data is safely stored locally and will be used by the application');
-    return true;
+    console.error('✗ Failed to save to HDFS:', err.message);
+    console.error('Ensure Hadoop/HDFS is running and accessible');
+    return false;
   }
 }
 

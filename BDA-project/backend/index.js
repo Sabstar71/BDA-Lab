@@ -43,14 +43,7 @@ async function readLocations() {
       return locationsCache;
     }
   } catch (err) {
-    console.warn('HDFS read failed, falling back to local file:', err && err.message);
-  }
-  try {
-    const t = await fs.readFile(LOCAL_DATA_FILE, 'utf8');
-    locationsCache = JSON.parse(t || '[]');
-    cacheTime = now;
-    return locationsCache;
-  } catch (e) {
+    console.error('Failed to read from HDFS:', err && err.message);
     return [];
   }
 }
@@ -61,16 +54,9 @@ async function writeLocations(arr) {
   const data = JSON.stringify(arr);
   try {
     await hdfs.writeFile(LOCATIONS_PATH, data);
-    return;
   } catch (err) {
-    console.warn('HDFS write failed, writing to local file instead:', err && err.message);
-  }
-  try {
-    await fs.mkdir(LOCAL_DATA_DIR, { recursive: true });
-    await fs.writeFile(LOCAL_DATA_FILE, data, 'utf8');
-  } catch (e) {
-    console.error('Failed to write local fallback file:', e && e.message);
-    throw e;
+    console.error('Failed to write to HDFS:', err && err.message);
+    throw err;
   }
 }
 

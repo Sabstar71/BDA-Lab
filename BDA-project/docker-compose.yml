@@ -9,6 +9,8 @@ services:
       - "8020:8020"   # HDFS RPC
     volumes:
       - hadoop_data:/hadoop/dfs
+    networks:
+      - bda-network
 
   backend:
     build:
@@ -19,9 +21,11 @@ services:
       - "8080:8080"
     environment:
       - HDFS_HOST=http://hadoop:50070
-      - HDFS_USER=hduser
+      - HDFS_USER=root
     depends_on:
       - hadoop
+    networks:
+      - bda-network
 
   frontend:
     build:
@@ -32,7 +36,13 @@ services:
       - "3000:80"
     depends_on:
       - backend
+    networks:
+      - bda-network
 
 volumes:
   hadoop_data:
     driver: local
+
+networks:
+  bda-network:
+    driver: bridge

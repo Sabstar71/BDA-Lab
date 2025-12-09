@@ -334,43 +334,89 @@
             width: 100%;
             padding: 10px;
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            background: transparent;
-            color: var(--muted);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
             margin-top: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
         }
 
         #editModal input:focus {
             outline: none;
             border-color: var(--accent);
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
+        }
+
+        #editModal input[type="range"] {
+            width: 100%;
+            padding: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+        }
+
+        #editModal input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        #editModal input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .form-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 16px;
+            gap: 10px;
+            margin-top: 20px;
             justify-content: flex-end;
         }
 
         .form-actions button {
-            padding: 10px 14px;
+            padding: 12px 16px;
             border-radius: 8px;
             border: none;
             cursor: pointer;
             font-weight: 600;
+            font-size: 14px;
             transition: all 0.2s ease;
         }
 
         .form-actions .primary {
             background: linear-gradient(90deg, var(--accent), var(--accent-2));
             color: #061024;
+            flex: 1;
+        }
+
+        .form-actions .primary:hover {
+            filter: brightness(1.08);
+            transform: translateY(-1px);
         }
 
         .form-actions .secondary {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.1);
             color: var(--muted);
-            border: 1px solid rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            flex: 1;
+        }
+
+        .form-actions .secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.25);
         }
 
         /* Marker dots */
@@ -550,30 +596,50 @@
     <!-- Add/Edit Modal -->
     <div id="editModal">
         <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 id="modalTitle" style="margin: 0; color: white;">Add New Waste Bin</h2>
-                <button onclick="closeModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">×</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="modalTitle" style="margin: 0; color: white; font-size: 22px;">Add New Waste Bin</h2>
+                <button onclick="closeModal()" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; padding: 0;">×</button>
             </div>
             <form onsubmit="saveLocation(event)">
-                <label>Bin ID:</label>
-                <input type="text" id="binId" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; color: var(--muted); font-weight: 600; margin-bottom: 6px; font-size: 13px;">Bin ID:</label>
+                        <input type="text" id="binId" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: white;">
+                    </div>
+                    <div>
+                        <label style="display: block; color: var(--muted); font-weight: 600; margin-bottom: 6px; font-size: 13px;">Name:</label>
+                        <input type="text" id="name" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: white;">
+                    </div>
+                </div>
 
-                <label>Name:</label>
-                <input type="text" id="name" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+                    <div>
+                        <label style="display: block; color: var(--muted); font-weight: 600; margin-bottom: 6px; font-size: 13px;">Latitude:</label>
+                        <input type="number" id="lat" step="0.000001" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: white;">
+                    </div>
+                    <div>
+                        <label style="display: block; color: var(--muted); font-weight: 600; margin-bottom: 6px; font-size: 13px;">Longitude:</label>
+                        <input type="number" id="lon" step="0.000001" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: white;">
+                    </div>
+                </div>
 
-                <label>Fill Level (%):</label>
-                <input type="number" id="status" min="0" max="100" required>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; color: var(--muted); font-weight: 600; margin-bottom: 6px; font-size: 13px;">Fill Level (%) - Current: <span id="statusDisplay">50</span>%</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="range" id="statusSlider" min="0" max="100" value="50" style="flex: 1; height: 6px; border-radius: 3px; background: linear-gradient(to right, #ef4444, #f59e0b, #10b981); outline: none;">
+                        <input type="number" id="status" min="0" max="100" value="50" required style="width: 70px; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: white;">
+                    </div>
+                </div>
 
-                <label>Latitude:</label>
-                <input type="number" id="lat" step="0.000001" required>
-
-                <label>Longitude:</label>
-                <input type="number" id="lon" step="0.000001" required>
+                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <p style="margin: 0; color: rgba(255, 255, 255, 0.7); font-size: 12px; margin-bottom: 8px;">📍 Location Preview</p>
+                    <p style="margin: 0; color: var(--muted); font-size: 13px;"><span id="coordDisplay">Click "Pick from Map" or enter coordinates</span></p>
+                </div>
 
                 <div class="form-actions">
-                    <button type="button" class="secondary" onclick="openPickerMap()">Pick from Map</button>
-                    <button type="submit" class="primary">Save</button>
-                    <button type="button" class="secondary" onclick="closeModal()">Cancel</button>
+                    <button type="button" class="secondary" onclick="openPickerMap()" style="flex: 1;">📍 Pick from Map</button>
+                    <button type="submit" class="primary" style="flex: 1;">✓ Save Bin</button>
+                    <button type="button" class="secondary" onclick="closeModal()" style="flex: 1;">Cancel</button>
                 </div>
             </form>
         </div>
@@ -606,8 +672,33 @@
             document.getElementById('binId').value = 'PK-' + Math.floor(Math.random() * 100000).toString().padStart(5, '0');
             document.getElementById('name').value = '';
             document.getElementById('status').value = 50;
+            document.getElementById('statusSlider').value = 50;
+            document.getElementById('statusDisplay').textContent = '50';
             document.getElementById('lat').value = '24.8607';
             document.getElementById('lon').value = '67.0011';
+            updateCoordDisplay();
+            
+            // Setup slider sync
+            document.getElementById('statusSlider').oninput = function() {
+                document.getElementById('status').value = this.value;
+                document.getElementById('statusDisplay').textContent = this.value;
+            };
+            document.getElementById('status').oninput = function() {
+                document.getElementById('statusSlider').value = this.value;
+                document.getElementById('statusDisplay').textContent = this.value;
+            };
+            
+            // Setup coordinate display update
+            document.getElementById('lat').oninput = updateCoordDisplay;
+            document.getElementById('lon').oninput = updateCoordDisplay;
+        }
+
+        function updateCoordDisplay() {
+            const lat = document.getElementById('lat').value;
+            const lon = document.getElementById('lon').value;
+            if (lat && lon) {
+                document.getElementById('coordDisplay').textContent = `Latitude: ${lat}, Longitude: ${lon}`;
+            }
         }
 
         function openEditModal(id) {
@@ -619,9 +710,26 @@
                 document.getElementById('binId').value = loc.binId || '';
                 document.getElementById('name').value = loc.name || '';
                 document.getElementById('status').value = loc.status || 0;
+                document.getElementById('statusSlider').value = loc.status || 0;
+                document.getElementById('statusDisplay').textContent = loc.status || 0;
                 document.getElementById('lat').value = loc.lat || '';
                 document.getElementById('lon').value = loc.lng || '';
+                updateCoordDisplay();
             });
+            
+            // Setup slider sync
+            document.getElementById('statusSlider').oninput = function() {
+                document.getElementById('status').value = this.value;
+                document.getElementById('statusDisplay').textContent = this.value;
+            };
+            document.getElementById('status').oninput = function() {
+                document.getElementById('statusSlider').value = this.value;
+                document.getElementById('statusDisplay').textContent = this.value;
+            };
+            
+            // Setup coordinate display update
+            document.getElementById('lat').oninput = updateCoordDisplay;
+            document.getElementById('lon').oninput = updateCoordDisplay;
         }
 
         function closeModal() {
