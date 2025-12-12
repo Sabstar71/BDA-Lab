@@ -3,62 +3,61 @@ const axios = require('axios');
 class HdfsClient {
   constructor({ host, user }) {
     this.host = host.replace(/\/$/, '');
-    this.user = user || 'hduser';
-    console.log(`[HDFS Client] Initialized with host: ${this.host}, user: ${this.user}`);
+    this.user = user || 'root';
   }
 
   async ensureDir(path) {
     const url = `${this.host}/webhdfs/v1${path}?op=MKDIRS&user.name=root`;
-    console.log(`[HDFS] Making directory: ${url}`);
     try {
       const res = await axios.put(url, null, { maxRedirects: 0, validateStatus: s => s >= 200 && s < 400, timeout: 5000 });
       return res.data;
     } catch (err) {
-      // MKDIRS may return 200 or other statuses; ignore errors if directory exists
-      console.error(`[HDFS] Error making directory: ${err.message}`);
       return null;
     }
   }
 
   async writeFile(path, data) {
-    // ensure parent dir
     const dir = path.substring(0, path.lastIndexOf('/')) || '/';
     await this.ensureDir(dir);
 
-    const createUrl = `${this.host}/webhdfs/v1${path}?op=CREATE&overwrite=true&user.name=root`;
-    console.log(`[HDFS] Writing file: ${createUrl}`);
+    const createUrl = `${this.host}/webhdfs/v1${path}?op=CREATE&overwrite=true&user.name=root&noredirect=true`;
     try {
-      // first request gets 307 with location to datanode
-      const r1 = await axios.put(createUrl, null, { maxRedirects: 0, validateStatus: s => s === 307, timeout: 5000 });
-      const location = r1.headers.location;
-      if (!location) throw new Error('No redirect location for create');
-      console.log(`[HDFS] Got redirect to: ${location}`);
-      // upload data to datanode
-      await axios.put(location, data, { headers: { 'Content-Type': 'application/octet-stream' }, timeout: 5000 });
-      console.log(`[HDFS] File written successfully`);
+      await axios.put(createUrl, data, {
+        headers: { 'Content-Type': 'application/octet-stream' },
+        timeout: 5000,
+        maxRedirects: 0,
+        validateStatus: s => s >= 200 && s < 500
+      });
       return true;
     } catch (err) {
-      // Some Hadoop versions accept the initial request directly
-      console.error(`[HDFS] Write error: ${err.message}`);
-      if (err.response && err.response.status >= 200 && err.response.status < 300) return true;
-      throw err;
+      throw new Error(`Failed to write file: ${err.message}`);
     }
   }
 
   async readFile(path) {
-    const openUrl = `${this.host}/webhdfs/v1${path}?op=OPEN&user.name=${this.user}`;
+    const openUrl = `${this.host}/webhdfs/v1${path}?op=OPEN&user.name=root&noredirect=true`;
     try {
-      const r1 = await axios.get(openUrl, { maxRedirects: 0, validateStatus: s => s === 307 });
+      const res = await axios.get(openUrl, {
+        responseType: 'text',
+        timeout: 5000,
+        maxRedirects: 0,
+        validateStatus: s => s >= 200 && s < 500
+      });
+      if (res.status >= 200 && res.status < 300) {
+        return res.data;
+      }
+      const r1 = await axios.get(openUrl.replace('&noredirect=true', ''), {
+        maxRedirects: 0,
+        validateStatus: s => s === 307,
+        timeout: 5000
+      });
       const location = r1.headers.location;
       if (!location) throw new Error('No redirect location for open');
-      const res = await axios.get(location, { responseType: 'text' });
-      return res.data;
+      const res2 = await axios.get(location, { responseType: 'text', timeout: 5000 });
+      return res2.data;
     } catch (err) {
-      // If it returned the content directly
-      if (err.response && err.response.status >= 200 && err.response.status < 300) return err.response.data;
-      // If file not found, return null
       if (err.response && err.response.status === 404) return null;
-      throw err;
+      throw new Error(`Failed to read file at ${path}: ${err.message}`);
     }
   }
 }

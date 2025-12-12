@@ -5,12 +5,12 @@ const { Server } = require('socket.io');
 const HdfsClient = require('./hdfsClient');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
+const compression = require('compression');
 const fs = require('fs').promises;
 const path = require('path');
-const compression = require('compression');
 
 const HDFS_HOST = process.env.HDFS_HOST || 'http://hadoop:50070';
-const HDFS_USER = process.env.HDFS_USER || 'hduser';
+const HDFS_USER = process.env.HDFS_USER || 'root';
 const LOCATIONS_PATH = '/locations/locations.json';
 
 const hdfs = new HdfsClient({ host: HDFS_HOST, user: HDFS_USER });
@@ -30,9 +30,9 @@ const CACHE_TTL = 5000;
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-async function readLocations() {
+async function readLocations(skipCache = false) {
   const now = Date.now();
-  if (locationsCache && (now - cacheTime) < CACHE_TTL) {
+  if (!skipCache && locationsCache && (now - cacheTime) < CACHE_TTL) {
     return locationsCache;
   }
   try {
@@ -40,10 +40,19 @@ async function readLocations() {
     if (text) {
       locationsCache = JSON.parse(text);
       cacheTime = now;
+      console.log(`[API] Successfully read ${locationsCache.length} locations from HDFS`);
       return locationsCache;
     }
   } catch (err) {
-    console.error('Failed to read from HDFS:', err && err.message);
+    console.warn('Failed to read from HDFS, falling back to local file:', err && err.message);
+  }
+  try {
+    const t = await fs.readFile(LOCAL_DATA_FILE, 'utf8');
+    locationsCache = JSON.parse(t || '[]');
+    cacheTime = now;
+    return locationsCache;
+  } catch (e) {
+    console.error('Failed to read local file:', e && e.message);
     return [];
   }
 }
@@ -54,26 +63,40 @@ async function writeLocations(arr) {
   const data = JSON.stringify(arr);
   try {
     await hdfs.writeFile(LOCATIONS_PATH, data);
+    return;
   } catch (err) {
-    console.error('Failed to write to HDFS:', err && err.message);
-    throw err;
+    console.warn('Failed to write to HDFS, writing to local file instead:', err && err.message);
+  }
+  try {
+    await fs.mkdir(LOCAL_DATA_DIR, { recursive: true });
+    await fs.writeFile(LOCAL_DATA_FILE, data, 'utf8');
+  } catch (e) {
+    console.error('Failed to write local fallback file:', e && e.message);
+    throw e;
   }
 }
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+app.get('/api', (req, res) => {
+  res.json({
+    status: 'BDA API Server',
+    version: '1.0.0',
+    endpoints: {
+      health: { method: 'GET', path: '/api/health', description: 'Health check' },
+      getAllLocations: { method: 'GET', path: '/api/locations/all', description: 'Get all waste bin locations' },
+      searchLocations: { method: 'GET', path: '/api/locations?q=search&minBin=0&page=1&limit=50', description: 'Search locations with filters' },
+      paginatedLocations: { method: 'GET', path: '/api/locations/paginated?page=1&limit=100', description: 'Get paginated locations' },
+      getLocation: { method: 'GET', path: '/api/locations/:id', description: 'Get specific location by ID' },
+      createLocation: { method: 'POST', path: '/api/locations', description: 'Create new location', body: { name: 'string', lat: 'number', lng: 'number', binLevel: 'number' } },
+      updateLocation: { method: 'PUT', path: '/api/locations/:id', description: 'Update location' },
+      deleteLocation: { method: 'DELETE', path: '/api/locations/:id', description: 'Delete location' },
+      exportLocations: { method: 'GET', path: '/api/locations/export', description: 'Export all locations as JSON file' },
+      importLocations: { method: 'POST', path: '/api/locations/import', description: 'Import locations from JSON array' }
+    }
+  });
 });
 
-app.get('/api/locations', async (req, res) => {
-  const q = (req.query.q || '').toLowerCase();
-  const minBin = parseInt(req.query.minBin || req.query.minStatus || '0', 10) || 0;
-  const page = Math.max(1, parseInt(req.query.page || '1', 10));
-  const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
-  const list = await readLocations();
-  const filtered = list.filter(l => (l.name || '').toLowerCase().includes(q) && ((l.status ?? l.binLevel) || 0) >= minBin);
-  const start = (page - 1) * limit;
-  const paginated = filtered.slice(start, start + limit);
-  res.json({ items: paginated, total: filtered.length, page, limit });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
 app.get('/api/locations/all', async (req, res) => {
@@ -90,10 +113,50 @@ app.get('/api/locations/paginated', async (req, res) => {
   res.json({ items, total: list.length, page, limit, pages: Math.ceil(list.length / limit) });
 });
 
+app.get('/api/locations/export', async (req, res) => {
+  const list = await readLocations();
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename="locations.json"');
+  res.send(JSON.stringify(list, null, 2));
+});
+
+app.post('/api/locations/import', async (req, res) => {
+  const payload = req.body;
+  if (!Array.isArray(payload)) return res.status(400).json({ error: 'expected array' });
+  const list = payload.map(p => ({ id: p.id || uuidv4(), binId: p.binId || p.binId === 0 ? p.binId : null, name: p.name || 'Unnamed', lat: p.lat, lng: p.lng, status: (p.status ?? p.binLevel) || 0, createdAt: p.createdAt || new Date().toISOString() }));
+  await writeLocations(list);
+  io.emit('locations:update', { action: 'import' });
+  console.log(`[API] Imported ${list.length} locations`);
+  res.json({ ok: true, count: list.length });
+});
+
+app.delete('/api/locations/deleteAll', async (req, res) => {
+  console.log('Deleting all locations...');
+  const list = await readLocations(true);
+  const count = list.length;
+  await writeLocations([]);
+  io.emit('locations:update', { action: 'deleteAll', count: count });
+  console.log(`[API] Deleted all ${count} locations`);
+  res.json({ ok: true, deleted: count });
+});
+
+// Generic location routes MUST come after specific routes
+app.get('/api/locations', async (req, res) => {
+  const q = (req.query.q || '').toLowerCase();
+  const minBin = parseInt(req.query.minBin || req.query.minStatus || '0', 10) || 0;
+  const page = Math.max(1, parseInt(req.query.page || '1', 10));
+  const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
+  const list = await readLocations();
+  const filtered = list.filter(l => (l.name || '').toLowerCase().includes(q) && ((l.status ?? l.binLevel) || 0) >= minBin);
+  const start = (page - 1) * limit;
+  const paginated = filtered.slice(start, start + limit);
+  res.json({ items: paginated, total: filtered.length, page, limit });
+});
+
 app.post('/api/locations', async (req, res) => {
   const { name, lat, lng, binLevel, binId, status } = req.body;
   if (typeof lat !== 'number' || typeof lng !== 'number') return res.status(400).json({ error: 'lat/lng required' });
-  const list = await readLocations();
+  const list = await readLocations(true);
   const item = {
     id: uuidv4(),
     binId: binId || null,
@@ -106,6 +169,7 @@ app.post('/api/locations', async (req, res) => {
   list.push(item);
   await writeLocations(list);
   io.emit('locations:update', { action: 'create', item });
+  console.log(`[API] Created location ${item.id}, total: ${list.length}`);
   res.status(201).json(item);
 });
 
@@ -117,25 +181,10 @@ app.get('/api/locations/:id', async (req, res) => {
   res.json(item);
 });
 
-app.get('/api/locations/export', async (req, res) => {
-  const list = await readLocations();
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', 'attachment; filename="locations.json"');
-  res.send(JSON.stringify(list, null, 2));
-});
-app.post('/api/locations/import', async (req, res) => {
-  const payload = req.body;
-  if (!Array.isArray(payload)) return res.status(400).json({ error: 'expected array' });
-  const list = payload.map(p => ({ id: p.id || uuidv4(), binId: p.binId || p.binId === 0 ? p.binId : null, name: p.name || 'Unnamed', lat: p.lat, lng: p.lng, status: (p.status ?? p.binLevel) || 0, createdAt: p.createdAt || new Date().toISOString() }));
-  await writeLocations(list);
-  io.emit('locations:update', { action: 'import' });
-  res.json({ ok: true, count: list.length });
-});
-
 app.put('/api/locations/:id', async (req, res) => {
   const id = req.params.id;
   const { name, lat, lng, binLevel, binId, status } = req.body;
-  const list = await readLocations();
+  const list = await readLocations(true);
   const idx = list.findIndex(x => x.id === id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   if (name !== undefined) list[idx].name = name;
@@ -147,27 +196,20 @@ app.put('/api/locations/:id', async (req, res) => {
   list[idx].updatedAt = new Date().toISOString();
   await writeLocations(list);
   io.emit('locations:update', { action: 'update', item: list[idx] });
+  console.log(`[API] Updated location ${id}`);
   res.json(list[idx]);
 });
 
 app.delete('/api/locations/:id', async (req, res) => {
   const id = req.params.id;
-  const list = await readLocations();
+  const list = await readLocations(true);
   const idx = list.findIndex(x => x.id === id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   const [removed] = list.splice(idx, 1);
   await writeLocations(list);
   io.emit('locations:update', { action: 'delete', item: removed });
+  console.log(`[API] Deleted location ${id}, remaining: ${list.length}`);
   res.json({ ok: true });
-});
-
-app.delete('/api/locations/deleteAll', async (req, res) => {
-  console.log('Deleting all locations...');
-  const list = await readLocations();
-  const count = list.length;
-  await writeLocations([]);
-  io.emit('locations:update', { action: 'deleteAll', count: count });
-  res.json({ ok: true, deleted: count });
 });
 
 io.on('connection', socket => {
